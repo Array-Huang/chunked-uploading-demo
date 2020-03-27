@@ -1,0 +1,4 @@
+server/merged_files
+server/uploaded_chunks
+server/database.json
+node_modules

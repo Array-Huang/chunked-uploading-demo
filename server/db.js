@@ -1,7 +1,9 @@
 const path = require('path');
 const { JsonDB } = require('node-json-db');
 const { Config } = require('node-json-db/dist/lib/JsonDBConfig');
-var db = new JsonDB(new Config(path.join(__dirname, 'database'), true, false, '/'));
+var db = new JsonDB(
+  new Config(path.join(__dirname, 'database'), true, false, '/')
+);
 
 function buildFileKey(hash) {
   return `/${hash}`;
@@ -13,17 +15,20 @@ function buildChunkKey(hash, index) {
 
 module.exports = {
   /* 初始化文件信息 */
-  initFileInfo: (hash, fileName, chunksLength) => {
+  initFileInfo: ({ fileHash: hash, fileName, chunksLength, size, sizeStr }) => {
     const data = {
       hash,
       fileName,
+      size,
+      sizeStr,
       status: 'uploading',
       path: '',
+      publicPath: '',
       chunksLength,
       chunks: new Array(chunksLength).fill({
         status: 'wait',
-        tempPath: ''
-      })
+        tempPath: '',
+      }),
     };
 
     db.push(buildFileKey(hash), data);
@@ -48,5 +53,5 @@ module.exports = {
   updateChunk: (hash, index, { status, tempPath = '' }) => {
     const key = buildChunkKey(hash, index);
     db.push(key, { status, tempPath });
-  }
+  },
 };

@@ -8,12 +8,21 @@ const streamFinished = util.promisify(finished);
 const { MERGED_FILES_DIR, PUBLIC_MERGED_FILES_DIR } = require('./config.js');
 
 router
+  .get('/', async ctx => {
+    ctx.response.body = 'hello world';
+  })
   /* 获取文件信息 */
   .get('/getFileInfo', async ctx => {
-    const { fileHash, fileName, chunksLength } = ctx.query;
+    const { fileHash, fileName, chunksLength, size, sizeStr } = ctx.query;
     /* 如果是没有上传过的文件，则需要初始化文件信息 */
     if (!db.isFileExisted(fileHash)) {
-      db.initFileInfo(fileHash, fileName, parseInt(chunksLength));
+      db.initFileInfo({
+        fileHash,
+        fileName,
+        chunksLength: parseInt(chunksLength),
+        size,
+        sizeStr,
+      });
     }
 
     ctx.response.body = db.getFileInfo(fileHash);
@@ -32,7 +41,7 @@ router
   })
   /* 上传文件分片 */
   .post('/uploadChunk', async ctx => {
-    const tempPath = ctx.request.files.chunk.path; // body-parser 会把上传好的文件放到指定的临时目录里
+    const tempPath = ctx.request.files.chunk.path.replace(/\\/g, '/'); // body-parser 会把上传好的文件放到指定的临时目录里
     const { fileContentHash, chunkIndex } = ctx.request.body;
 
     /**
@@ -41,7 +50,9 @@ router
      * @param {String} fileContentHash 文件hash
      */
     async function mergeFile(fileContentHash) {
-      const mergedFilePath = path.join(MERGED_FILES_DIR, fileInfo.fileName);
+      const mergedFilePath = path
+        .join(MERGED_FILES_DIR, fileInfo.fileName)
+        .replace(/\\/g, '/');
 
       const writeStream = fs.createWriteStream(mergedFilePath); // 新建文件可写流
       /* 按顺序逐个创建文件分片的可读流，通过管道传递给文件的可写流 */
@@ -55,7 +66,13 @@ router
 
       writeStream.end(); // 手动关闭可写流
       /* 更新文件信息，包括状态、文件物理路径、文件的URL */
-      db.setFileFinish(fileContentHash, mergedFilePath, path.join(PUBLIC_MERGED_FILES_DIR, fileInfo.fileName));
+      db.setFileFinish(
+        fileContentHash,
+        mergedFilePath,
+        path
+          .join(PUBLIC_MERGED_FILES_DIR, fileInfo.fileName)
+          .replace(/\\/g, '/')
+      );
     }
 
     db.updateChunk(fileContentHash, chunkIndex, { status: 'finish', tempPath }); // 修改分片的上传状态为'finish'
